@@ -10,6 +10,7 @@ import {
   Alert,
   Image,
   Modal,
+  Linking,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,6 +19,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { loansApi } from '../api/loans';
+import { API_BASE_URL } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { ILoan } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/Button';
@@ -35,6 +38,7 @@ export const LoanDetailsScreen: React.FC = () => {
   const route = useRoute<LoanDetailsRouteProp>();
   const navigation = useNavigation<LoanDetailsNavProp>();
   const { loanId } = route.params;
+  const { token } = useAuth();
 
   const [loan, setLoan] = useState<ILoan | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -48,6 +52,14 @@ export const LoanDetailsScreen: React.FC = () => {
 
   // Full-screen image modal
   const [showImageModal, setShowImageModal] = useState<boolean>(false);
+
+  const receiptUrl = loan?.receiptPath
+    ? loan.receiptPath.startsWith('http') ||
+      loan.receiptPath.startsWith('blob:') ||
+      loan.receiptPath.startsWith('data:')
+      ? loan.receiptPath
+      : `${API_BASE_URL}/loans/${loan._id}/receipt?token=${token}`
+    : null;
 
   const fetchLoanDetails = useCallback(async () => {
     try {
@@ -380,13 +392,20 @@ export const LoanDetailsScreen: React.FC = () => {
           </View>
 
           {loan.receiptPath ? (
-            <TouchableOpacity onPress={() => setShowImageModal(true)}>
+            <TouchableOpacity
+              onPress={() => setShowImageModal(true)}
+              activeOpacity={0.8}
+              style={styles.receiptPreviewTouch}
+            >
               <Image
-                source={{ uri: loan.receiptPath }}
+                source={{ uri: receiptUrl || loan.receiptPath }}
                 style={styles.attachedImage}
                 defaultSource={{ uri: 'https://placehold.co/400x250?text=Receipt+Attached' }}
               />
-              <Text style={styles.viewFullImageText}>Tap to view full receipt</Text>
+              <View style={styles.viewFullImageRow}>
+                <Ionicons name="scan-outline" size={15} color={colors.primary} />
+                <Text style={styles.viewFullImageText}>Tap to view full receipt</Text>
+              </View>
             </TouchableOpacity>
           ) : (
             <Text style={styles.noRepaymentsText}>No receipt photo attached for this loan.</Text>
@@ -427,6 +446,79 @@ export const LoanDetailsScreen: React.FC = () => {
                 onPress={confirmAndExecuteRepayment}
                 variant="primary"
                 style={{ flex: 1, marginLeft: 8 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Lightbox Modal for Full Receipt View */}
+      <Modal
+        visible={showImageModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImageModal(false)}
+      >
+        <View style={styles.lightboxOverlay}>
+          <View style={styles.lightboxCard}>
+            {/* Lightbox Header */}
+            <View style={styles.lightboxHeader}>
+              <View style={styles.lightboxTitleGroup}>
+                <Ionicons name="document-text" size={20} color={colors.primaryLight} style={{ marginRight: 8 }} />
+                <View>
+                  <Text style={styles.lightboxTitle}>Receipt Photo</Text>
+                  <Text style={styles.lightboxSubtitle}>
+                    {loan.friendName} • {formatCurrency(loan.amount)}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowImageModal(false)}
+                style={styles.lightboxCloseBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Lightbox Image Preview */}
+            <View style={styles.lightboxImageContainer}>
+              {receiptUrl ? (
+                <Image
+                  source={{ uri: receiptUrl }}
+                  style={styles.lightboxImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={styles.lightboxNoImage}>
+                  <Ionicons name="image-outline" size={48} color={colors.textMuted} />
+                  <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
+                    Receipt photo is unavailable.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Lightbox Footer Actions */}
+            <View style={styles.lightboxFooter}>
+              {receiptUrl ? (
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(receiptUrl)}
+                  style={styles.lightboxOpenLink}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="open-outline" size={16} color={colors.primaryLight} />
+                  <Text style={styles.lightboxOpenLinkText}>Open Full Size</Text>
+                </TouchableOpacity>
+              ) : (
+                <View />
+              )}
+              <Button
+                title="Done"
+                onPress={() => setShowImageModal(false)}
+                variant="primary"
+                size="sm"
+                style={{ minWidth: 90 }}
               />
             </View>
           </View>
@@ -719,10 +811,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     resizeMode: 'cover',
   },
+  receiptPreviewTouch: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  viewFullImageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
   viewFullImageText: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
     textAlign: 'center',
   },
   modalOverlay: {
@@ -765,5 +868,94 @@ const styles = StyleSheet.create({
   modalButtonRow: {
     flexDirection: 'row',
     width: '100%',
+  },
+  // Lightbox Modal Styles
+  lightboxOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  lightboxCard: {
+    width: '100%',
+    maxWidth: 560,
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  lightboxHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  lightboxTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  lightboxTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  lightboxSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.65)',
+    marginTop: 2,
+  },
+  lightboxCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  lightboxImageContainer: {
+    width: '100%',
+    height: 400,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxNoImage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  lightboxOpenLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  lightboxOpenLinkText: {
+    fontSize: 13,
+    color: colors.primaryLight,
+    fontWeight: '600',
   },
 });

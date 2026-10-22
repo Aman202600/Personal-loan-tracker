@@ -10,8 +10,12 @@ import { config } from './config/env';
 export const createApp = (): Application => {
   const app: Application = express();
 
-  // Security Headers
-  app.use(helmet());
+  // Security Headers with cross-origin resource policy enabled for images
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
 
   // CORS Configuration
   app.use(

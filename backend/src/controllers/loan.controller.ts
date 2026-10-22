@@ -145,6 +145,7 @@ export class LoanController {
 
       const filePath = path.resolve(loan.receiptPath);
       res.setHeader('Content-Type', loan.receiptMimeType || 'image/jpeg');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       fs.createReadStream(filePath).pipe(res);
     } catch (error) {
       next(error);
