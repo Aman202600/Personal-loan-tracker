@@ -3,11 +3,14 @@
   "version": "1.0.0",
   "description": "MiniLedger — Personal Loan Tracker (React Native & Node.js + TypeScript + MongoDB)",
   "scripts": {
+    "start": "node scripts/start-all.js",
+    "dev": "node scripts/start-all.js",
     "dev:backend": "npm --prefix backend run dev",
     "build:backend": "npm --prefix backend run build",
     "test:backend": "npm --prefix backend test",
     "start:mobile": "npm --prefix mobile start",
     "android:mobile": "npm --prefix mobile run android",
+    "mongo:local": "npm --prefix backend run mongo:local",
     "web:mobile": "npm --prefix mobile run web"
   },
   "keywords": [

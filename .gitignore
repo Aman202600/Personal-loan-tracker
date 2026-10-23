@@ -20,8 +20,10 @@ web-build/
 .expo-shared/
 
 # Uploads & Temp files
-uploads/*
-!uploads/.gitkeep
+**/uploads/*
+!**/uploads/.gitkeep
+data/
+backend/data/
 scratch/
 *.log
 npm-debug.log*

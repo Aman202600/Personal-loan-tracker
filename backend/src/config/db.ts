@@ -8,11 +8,21 @@ export const connectDB = async (customUri?: string): Promise<typeof mongoose> =>
   const uri = customUri || config.mongoUri;
 
   try {
-    mongoose.set('strictQuery', true);
-
-    const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 2500,
-    });
+    let conn;
+    try {
+      conn = await mongoose.connect(uri, {
+        serverSelectionTimeoutMS: 2000,
+      });
+    } catch (initialErr) {
+      if (uri.includes('localhost')) {
+        const ipUri = uri.replace('localhost', '127.0.0.1');
+        conn = await mongoose.connect(ipUri, {
+          serverSelectionTimeoutMS: 2000,
+        });
+      } else {
+        throw initialErr;
+      }
+    }
 
     logger.info(`MongoDB Connected successfully to host: ${conn.connection.host}`);
     return conn;
